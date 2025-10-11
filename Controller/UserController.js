@@ -114,4 +114,21 @@ const test = async (req, res) => {
   }
 };
 
-module.exports = { register, login, userdata, test };
+// LOGOUT
+const logout = async (req, res) => {
+  try {
+    // Clear the cookie
+    res.clearCookie("token", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // true in production
+      sameSite: "strict",
+    });
+
+    return res.json({ message: "Logged out successfully" });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+module.exports = { register, login, userdata, test ,logout };
