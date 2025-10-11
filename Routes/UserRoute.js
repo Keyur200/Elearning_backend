@@ -3,8 +3,12 @@ const { register, login, userdata, test } = require('../Controller/UserControlle
 const { requireLogin } = require('../Middleware/AuthMiddleware');
 const router = express.Router();
 
-router.post('/register', register)
-router.post('/login',login)
-router.get('/user',userdata)
-router.get('/test',requireLogin, test)
-module.exports = router
+// Public routes
+router.post('/register', register);
+router.post('/login', login);
+
+// Protected routes
+router.get('/user', requireLogin, userdata);
+router.get('/test', requireLogin, test);
+
+module.exports = router;

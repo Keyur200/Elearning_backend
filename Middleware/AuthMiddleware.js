@@ -1,28 +1,33 @@
 const jwt = require('jsonwebtoken');
 const User = require('../Models/UserModel');
-const requireLogin = async(req,res,next) => {
-    try {
-        const {token} = req.cookies;
-        if(!token) {
-            return res.json({error:"You must login."})
-        }
+const Role = require('../Models/RoleModel');
 
-        jwt.verify(token, process.env.SECRET, {} ,(err,user)=>{
-            if(err) {
-                return res.json({error:"You must login."})
-            }
-            else{
-                const {_id} = user;
-                User.findById(_id).then((userdata)=>{
-                    req.user = userdata
-                    next()
-                })
-            }
-
-        })
-    } catch (error) {
-        console.log(error)
+const requireLogin = async (req, res, next) => {
+  try {
+    const { token } = req.cookies;
+    if (!token) {
+      return res.status(401).json({ error: "You must login." });
     }
-}
 
-module.exports = {requireLogin}
+    const decoded = jwt.verify(token, process.env.SECRET);
+    if (!decoded) return res.status(403).json({ error: "Invalid token." });
+
+    const user = await User.findById(decoded._id).populate('roleId', 'name');
+    if (!user) return res.status(404).json({ error: "User not found." });
+
+    // Attach user info including role name
+    req.user = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.roleId.name // role name instead of ObjectId
+    };
+
+    next();
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ error: "Server error." });
+  }
+};
+
+module.exports = { requireLogin };
