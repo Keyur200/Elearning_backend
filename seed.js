@@ -88,7 +88,7 @@ const seedDatabase = async () => {
 
         // 5. Generate JWT token for admin (for testing purposes)
         const adminToken = jwt.sign({ _id: admin._id, role: 'Admin' }, process.env.SECRET, { expiresIn: '7d' });
-        console.log('✅ JWT Token for Admin:', adminToken);
+        console.log('JWT Token for Admin:', adminToken);
 
         // 6. Create Profiles
         await Profile.create({
