@@ -131,4 +131,41 @@ const logout = async (req, res) => {
   }
 };
 
-module.exports = { register, login, userdata, test ,logout };
+// CHANGE PASSWORD
+const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const { token } = req.cookies;
+
+    if (!token) return res.status(401).json({ error: "Not logged in" });
+    if (!currentPassword || !newPassword)
+      return res.status(400).json({ error: "Please provide all fields" });
+
+    // Verify JWT
+    jwt.verify(token, process.env.SECRET, {}, async (err, decoded) => {
+      if (err) return res.status(403).json({ error: "Invalid token" });
+
+      // Get the user
+      const user = await User.findById(decoded._id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      // Check current password
+      const passCheck = await bcrypt.compare(currentPassword, user.password);
+      if (!passCheck)
+        return res.status(400).json({ error: "Current password is incorrect" });
+
+      // Hash new password
+      const hashedPass = await bcrypt.hash(newPassword, 10);
+      user.password = hashedPass;
+
+      await user.save();
+
+      res.json({ message: "Password changed successfully" });
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+module.exports = { register, login, userdata, test, logout, changePassword };
