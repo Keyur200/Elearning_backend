@@ -6,6 +6,7 @@ const Role = require("./Models/RoleModel");
 const UserRoute = require("./Routes/UserRoute");
 const CourseRoute = require("./Routes/CourseRoute");
 const categoryRoutes = require("./Routes/categoryRoutes");
+const profileRoutes = require("./Routes/ProfileRoutes");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
 const app = express();
@@ -21,5 +22,6 @@ mongoose
 app.use("/auth/", UserRoute);
 app.use("/api/", CourseRoute);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/', profileRoutes);
 
 app.listen(5000, () => console.log("Port connected on 5000"));
