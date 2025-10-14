@@ -186,23 +186,80 @@ const deleteVideo = async (req, res) => {
   }
 };
 
-// ✅ Preview Course
+// Preview Course - fetch all videos regardless of isPreview and optionally show unpublished if instructor
 const previewCourse = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const course = await Course.findOne({ _id: id, isPublished: true })
+    const course = await Course.findById(id)
       .populate('categoryId', 'name')
       .populate('instructorId', 'name email');
 
-    if (!course) return res.status(404).json({ message: "Course not found or not published" });
+    if (!course) return res.status(404).json({ message: "Course not found" });
 
-    const videos = await Video.find({ courseId: id, isPreview: true })
-      .sort({ order: 1 });
+    const videos = await Video.find({ courseId: id }).sort({ order: 1 });
 
     res.json({ course, videos });
 
   } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ✅ Get courses for logged-in instructor
+const getMyCourses = async (req, res) => {
+  try {
+    const instructorId = req.user._id; // from requireLogin middleware
+    const courses = await Course.find({ instructorId })
+      .populate('categoryId', 'name')
+      .populate('instructorId', 'name email');
+
+    res.json({ courses });
+  } catch (err) {
+    console.error("Error fetching instructor courses:", err.message);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ✅ Update Video
+const updateVideo = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, duration, order, isPreview, videoUrl } = req.body;
+
+    const video = await Video.findById(id);
+    if (!video) return res.status(404).json({ message: "Video not found" });
+
+    // If a new file is uploaded, replace the old video in Cloudinary
+    if (req.file) {
+      if (video.cloudinaryId) {
+        await cloudinary.uploader.destroy(video.cloudinaryId, { resource_type: "video" });
+      }
+      const uploadResult = await cloudinary.uploader.upload(req.file.path, {
+        folder: "courses/videos",
+        resource_type: "video"
+      });
+      video.videoUrl = uploadResult.secure_url;
+      video.cloudinaryId = uploadResult.public_id;
+    } else if (videoUrl) {
+      // Update video URL if provided
+      video.videoUrl = videoUrl;
+      video.cloudinaryId = null;
+    }
+
+    // Update other fields
+    video.title = title || video.title;
+    video.description = description || video.description;
+    video.duration = duration || video.duration;
+    video.order = order || video.order;
+    video.isPreview = isPreview !== undefined ? isPreview : video.isPreview;
+
+    await video.save();
+    res.json({ message: "Video updated successfully", video });
+
+  } catch (err) {
+    console.error("Error updating video:", err.message);
     res.status(500).json({ message: err.message });
   }
 };
@@ -215,5 +272,7 @@ module.exports = {
   publishCourse,
   createVideo,
   deleteVideo,
-  previewCourse
+  previewCourse,
+  getMyCourses,
+  updateVideo
 };
