@@ -16,7 +16,6 @@ const register = async (req, res) => {
       return res.status(400).json({ error: "Email is already used." });
     }
 
-    // Default role = User
     const userRole = await Role.findOne({ name: "User" });
     if (!userRole) {
       return res.status(500).json({ error: "Default role not found." });

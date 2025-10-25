@@ -9,6 +9,7 @@ const {
   publishCourse,
   getMyCourses,
   previewCourse,
+  getAllPublishedCourses,
 
   // VIDEO
   createVideo,
@@ -40,6 +41,7 @@ router.get("/courses", getAllCourses);
 // Get single course by ID (Public)
 router.get("/course/:id", getCourseById);
 
+router.get("/published-courses", getAllPublishedCourses); 
 // Update course by ID (Admin/Instructor)
 router.put(
   "/course/:id",

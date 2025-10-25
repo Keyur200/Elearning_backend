@@ -256,6 +256,20 @@ const previewCourse = async (req, res) => {
   }
 };
 
+const getAllPublishedCourses = async (req, res) => {
+  try {
+    const courses = await Course.find({ isPublished: true }) 
+      .populate("categoryId", "name")
+      .populate("instructorId", "name email");
+
+    if (!courses) return res.status(404).json({ message: "Course not found" });
+
+    return res.json(courses);
+  }catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
 /* --------------------------------
  🔵 VIDEO CONTROLLERS
 ---------------------------------- */
@@ -437,6 +451,7 @@ module.exports = {
   publishCourse,
   getMyCourses,
   previewCourse,
+  getAllPublishedCourses,
 
   // VIDEO
   createVideo,
@@ -444,5 +459,5 @@ module.exports = {
   updateVideo,
   deleteVideo,
   unlockAllVideosForUser,
-  makeVideoPreview, // ✅ new
+  makeVideoPreview, 
 };
