@@ -167,4 +167,69 @@ const changePassword = async (req, res) => {
   }
 };
 
-module.exports = { register, login, userdata, test, logout, changePassword };
+
+// ✅ FETCH ALL USERS
+const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find().populate("roleId", "name");
+    const formattedUsers = users.map(u => ({
+      _id: u._id,
+      name: u.name,
+      email: u.email,
+      role: u.roleId ? u.roleId.name : "Unknown"
+    }));
+
+    res.json(formattedUsers);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+// ✅ CHANGE USER ROLE
+const changeUserRole = async (req, res) => {
+  try {
+    const { userId, roleName } = req.body;
+
+    if (!userId || !roleName) {
+      return res.status(400).json({ error: "User ID and role name are required" });
+    }
+
+    const role = await Role.findOne({ name: roleName });
+    if (!role) {
+      return res.status(404).json({ error: "Role not found" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    user.roleId = role._id;
+    await user.save();
+
+    res.json({
+      message: "User role updated successfully",
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: role.name
+      }
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+module.exports = {
+  register,
+  login,
+  userdata,
+  test,
+  logout,
+  changePassword,
+  getAllUsers,
+  changeUserRole
+};

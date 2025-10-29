@@ -66,6 +66,6 @@ router.delete('/course/:id', requireLogin, isAdminOrInstructor, deleteCourse);
 router.get('/courses/preview/:id', requireLogin, previewCourse);
 
 // ✅ User course details (with restricted video access)
-router.get('/courses/details/:id', requireLogin, userCourseDetails);
+router.get('/courses/details/:id',  userCourseDetails);
 
 module.exports = router;
