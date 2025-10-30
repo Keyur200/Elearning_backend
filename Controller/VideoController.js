@@ -140,14 +140,14 @@ const updateVideo = async (req, res) => {
     const video = await Video.findById(id);
     if (!video) return res.status(404).json({ message: "Video not found" });
 
-    // ✅ Section update if provided
+    // ✅ Update section if provided
     if (sectionId) {
       const section = await Section.findById(sectionId);
       if (!section) return res.status(404).json({ message: "Section not found" });
       video.sectionId = sectionId;
     }
 
-    let durationSeconds;
+    let durationSeconds = null; // <-- initialize as null
 
     // ✅ Case 1: New file upload
     if (req.file) {
@@ -165,8 +165,9 @@ const updateVideo = async (req, res) => {
       durationSeconds = Math.round(uploadResult.duration || 0);
     }
 
-    // ✅ Case 2: New video URL
-    else if (videoUrl) {
+    // ✅ Case 2: New video URL (manual or Cloudinary)
+    else if (videoUrl && videoUrl !== video.videoUrl) {
+      // Only handle if the videoUrl actually changed
       video.videoUrl = videoUrl;
       video.cloudinaryId = null;
 
@@ -174,24 +175,26 @@ const updateVideo = async (req, res) => {
       if (match) {
         try {
           const info = await cloudinary.api.resource(match[1], { resource_type: "video" });
-          durationSeconds = Math.round(info.duration || 60);
+          durationSeconds = Math.round(info.duration || 0);
         } catch {
-          durationSeconds = 60;
+          durationSeconds = null; // not found, leave unchanged
         }
       } else {
         try {
           const seconds = await getVideoDurationInSeconds(videoUrl);
           durationSeconds = Math.round(seconds);
         } catch {
-          durationSeconds = 60;
+          durationSeconds = null;
         }
       }
     }
 
-    // ✅ Apply duration + other updates
-    if (durationSeconds > 0) {
+    // ✅ Only update duration if a new one was found
+    if (durationSeconds && durationSeconds > 0) {
       video.duration = formatDuration(durationSeconds);
     }
+
+    // ✅ Apply other updates
     if (title) video.title = title;
     if (description) video.description = description;
     if (order !== undefined) video.order = order;
@@ -204,6 +207,7 @@ const updateVideo = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
 
 /* ✅ Delete video */
 const deleteVideo = async (req, res) => {
