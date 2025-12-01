@@ -14,10 +14,13 @@ const VideoRoute = require("./Routes/VideoRoutes");
 const SectionRoute = require("./Routes/SectionRoutes");
 const categoryRoutes = require("./Routes/categoryRoutes");
 const profileRoutes = require("./Routes/ProfileRoutes");
+const OrderRoutes = require("./Routes/OrderRoutes");
+const PaymentRoutes = require("./Routes/PaymentRoutes");
+const EnrolleRoutes = require("./Routes/EnrollementRoutes");
 
 // 🔹 Initialize App
-const app = express();
 dotenv.config();
+const app = express();
 
 // 🔹 Middlewares
 app.use(
@@ -35,6 +38,7 @@ mongoose
   .then(() => console.log("✅ MongoDB Connected"))
   .catch((err) => console.log("❌ MongoDB Connection Error:", err.message));
 
+
 // 🔹 Route Registration
 app.use("/auth", UserRoute);
 app.use("/api", CourseRoute);
@@ -42,6 +46,9 @@ app.use("/api", VideoRoute);
 app.use("/api", SectionRoute);
 app.use("/api/categories", categoryRoutes);
 app.use("/api", profileRoutes);
+app.use("/api", OrderRoutes);
+app.use("/api", PaymentRoutes);
+app.use("/api", EnrolleRoutes);
 
 // 🔹 Server Start
 const PORT = process.env.PORT || 5000;
