@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { createProfile, updateProfile, getProfileById } = require("../Controller/ProfileController");
+const { createProfile, updateProfile, getProfileById, getProfilePublic } = require("../Controller/ProfileController");
 const { requireLogin } = require("../Middleware/authMiddleware");
 const { uploadImage } = require("../Config/Multer"); // Multer + Cloudinary
 
@@ -13,4 +13,6 @@ router.put("/profile", requireLogin, uploadImage.single('image'), updateProfile)
 // Get Profile
 router.get("/profile", requireLogin, getProfileById);
 
+
+router.get("/profile/:userId", getProfilePublic);
 module.exports = router;

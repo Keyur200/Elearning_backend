@@ -12,6 +12,7 @@ const {
   getAllPublishedCourses,
   userCourseDetails,
   deleteCourse,
+  enrolledCourseDetails,
 } = require('../Controller/CourseController');
 
 const { uploadImage } = require('../Config/Multer');
@@ -67,5 +68,7 @@ router.get('/courses/preview/:id', requireLogin, previewCourse);
 
 // ✅ User course details (with restricted video access)
 router.get('/courses/details/:id',  userCourseDetails);
+
+router.get("/courses/enrolled/:id", requireLogin, enrolledCourseDetails);
 
 module.exports = router;

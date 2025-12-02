@@ -96,3 +96,21 @@ exports.getProfileById = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+// ✅ Get ANY user's profile by userId (public for course instructor)
+exports.getProfilePublic = async (req, res) => {
+  try {
+    const userId = req.params.userId;
+
+    const profile = await Profile.findOne({ userId }).populate("userId", "name email");
+    if (!profile) {
+      return res.status(404).json({ message: "Profile not found" });
+    }
+
+    res.status(200).json(profile);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+

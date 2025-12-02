@@ -2,6 +2,7 @@ const Course = require("../Models/CourseModel");
 const Video = require("../Models/VideoModel");
 const Section = require("../Models/SectionModel");
 const Order = require("../Models/OrderModel");
+const Enrollment = require("../Models/EnrollmentModel");
 const cloudinary = require("cloudinary").v2;
 
 /* --------------------------------
@@ -361,26 +362,25 @@ const previewCourse = async (req, res) => {
 };
 
 /* --------------------------------
- 🟢 User Course Details (For Learners)
+🟢 User Course Details (For Learners)
 ---------------------------------- */
 const userCourseDetails = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id: courseId } = req.params;
     const userId = req.user?._id;
 
-    const course = await Course.findById(id)
+    const course = await Course.findById(courseId)
       .populate("categoryId", "name")
       .populate("instructorId", "name email");
 
     if (!course) return res.status(404).json({ message: "Course not found" });
 
-    const hasPurchased = await Order.findOne({
-      userId,
-      "orderItems.courseId": id,
-      isPaid: true,
-    });
+    const isEnrolled = await Enrollment.findOne({ userId, courseId });
 
-    const sections = await Section.find({ courseId: id }).sort({ order: 1 });
+    const sections = await Section.find({ courseId }).sort({ order: 1 });
+
+    let totalVideos = 0;
+    let totalDurationSeconds = 0;
 
     const sectionData = await Promise.all(
       sections.map(async (section) => {
@@ -389,14 +389,37 @@ const userCourseDetails = async (req, res) => {
         });
 
         const visibleVideos = videos.map((v) => {
-          if (hasPurchased || v.isPreview) {
-            return v;
+          // COUNT ALL VIDEOS
+          totalVideos += 1;
+
+          // Parse duration for ALL videos
+          let durationSec = 0;
+          if (typeof v.duration === "number") {
+            durationSec = v.duration;
+          } else if (typeof v.duration === "string") {
+            const parts = v.duration.split(":").map(Number);
+            if (parts.length === 3) {
+              durationSec = parts[0] * 3600 + parts[1] * 60 + parts[2];
+            } else if (parts.length === 2) {
+              durationSec = parts[0] * 60 + parts[1];
+            } else {
+              durationSec = parseInt(v.duration) || 0;
+            }
+          }
+
+          // Add to total course duration
+          totalDurationSeconds += durationSec;
+
+          // ACCESS LOGIC (unchanged)
+          if (isEnrolled || v.isPreview) {
+            return { ...v.toObject() };
           } else {
             return {
               _id: v._id,
               title: v.title,
               duration: v.duration,
               isPreview: v.isPreview,
+              locked: true,
               message: "Purchase required to access this video",
             };
           }
@@ -406,10 +429,23 @@ const userCourseDetails = async (req, res) => {
       })
     );
 
+    // Format total duration
+    const formatDuration = (seconds) => {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = seconds % 60;
+      if (h > 0) return `${h}h ${m}m`;
+      if (m > 0) return `${m}m ${s}s`;
+      return `${s}s`;
+    };
+
     res.json({
       course,
-      purchased: !!hasPurchased,
+      purchased: !!isEnrolled,
       sections: sectionData,
+      totalSections: sections.length,
+      totalVideos,
+      totalDuration: formatDuration(totalDurationSeconds),
     });
   } catch (err) {
     console.error("Error fetching user course details:", err.message);
@@ -427,12 +463,59 @@ const getAllPublishedCourses = async (req, res) => {
       .populate("instructorId", "name email");
 
     if (!courses.length)
-      return res
-        .status(404)
-        .json({ message: "No published courses found" });
+      return res.status(404).json({ message: "No published courses found" });
 
     return res.json(courses);
   } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/* ----------------------------------------------------
+ 🟢 Get Full Course Only For Enrolled Users
+---------------------------------------------------- */
+const enrolledCourseDetails = async (req, res) => {
+  try {
+    const { id: courseId } = req.params;
+    const userId = req.user?._id; // must come from auth middleware
+
+    // Check enrollment
+    const isEnrolled = await Enrollment.findOne({ userId, courseId });
+
+    if (!isEnrolled) {
+      return res.status(403).json({
+        message: "You must purchase this course to access full content.",
+      });
+    }
+
+    // Fetch course
+    const course = await Course.findById(courseId)
+      .populate("categoryId", "name")
+      .populate("instructorId", "name email");
+
+    if (!course) return res.status(404).json({ message: "Course not found" });
+
+    // Fetch all sections
+    const sections = await Section.find({ courseId }).sort({ order: 1 });
+
+    // Fetch all videos without locking ANY
+    const sectionData = await Promise.all(
+      sections.map(async (section) => {
+        const videos = await Video.find({ sectionId: section._id }).sort({
+          order: 1,
+        });
+
+        return { ...section.toObject(), videos };
+      })
+    );
+
+    res.json({
+      course,
+      enrolled: true,
+      sections: sectionData,
+    });
+  } catch (err) {
+    console.error("🔥 Error loading enrolled course:", err.message);
     res.status(500).json({ message: err.message });
   }
 };
@@ -448,4 +531,5 @@ module.exports = {
   previewCourse,
   getAllPublishedCourses,
   userCourseDetails,
+  enrolledCourseDetails,
 };
