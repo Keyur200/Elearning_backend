@@ -4,6 +4,7 @@ const Section = require("../Models/SectionModel");
 const Order = require("../Models/OrderModel");
 const Enrollment = require("../Models/EnrollmentModel");
 const cloudinary = require("cloudinary").v2;
+const Notification = require("../Models/NotificationModel");
 
 /* --------------------------------
  🟢 COURSE CONTROLLERS
@@ -49,6 +50,7 @@ const createCourse = async (req, res) => {
     const tagsArray = Array.isArray(tags)
       ? tags
       : tags?.split(",").map((t) => t.trim()) || [];
+
     const benefitsArray = Array.isArray(benefits)
       ? benefits
       : benefits?.split(",").map((b) => b.trim()) || [];
@@ -67,7 +69,23 @@ const createCourse = async (req, res) => {
     });
 
     await course.save();
-    res.status(201).json({ message: "Course created successfully", course });
+
+    /* --------------------------------------------------
+     🔔 CREATE ADMIN NOTIFICATION (NO SOCKET.IO)
+    -------------------------------------------------- */
+    await Notification.create({
+      userId: instructorId,
+      type: "course_created",
+      referenceId: course._id,
+      message: `A new course was added: ${course.title}`,
+      forRole: "admin",
+      isRead: false,
+    });
+
+    res.status(201).json({
+      message: "Course created successfully & admin notified",
+      course,
+    });
   } catch (err) {
     console.error("Error creating course:", err.message);
     res.status(500).json({ message: err.message });

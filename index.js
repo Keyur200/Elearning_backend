@@ -17,6 +17,7 @@ const profileRoutes = require("./Routes/ProfileRoutes");
 const OrderRoutes = require("./Routes/OrderRoutes");
 const PaymentRoutes = require("./Routes/PaymentRoutes");
 const EnrolleRoutes = require("./Routes/EnrollementRoutes");
+const notificationRoutes = require("./Routes/notificationRoutes");
 
 // 🔹 Initialize App
 dotenv.config();
@@ -49,7 +50,7 @@ app.use("/api", profileRoutes);
 app.use("/api", OrderRoutes);
 app.use("/api", PaymentRoutes);
 app.use("/api", EnrolleRoutes);
-
+app.use("/api",notificationRoutes);
 // 🔹 Server Start
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
