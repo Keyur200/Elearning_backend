@@ -3,6 +3,7 @@ const Course = require("../Models/CourseModel.js");
 const Video = require("../Models/VideoModel.js");
 const Section = require("../Models/SectionModel.js");
 const VideoReview = require("../Models/VideoReviewModel.js");
+const Profile = require("../Models/ProfileModel.js");
 
 const { CreateNotification } = require("../services/NotificationService");
 
@@ -33,48 +34,120 @@ exports.GetEnrolledCourse = async (req, res) => {
     if (!enrolled)
       return res.status(403).json({ message: "User not enrolled!" });
 
-    const course = await Course.findById(courseId).populate("instructorId");
+    const course = await Course.findById(courseId)
+      .populate("instructorId", "name avatar");
+
+    // Fetch instructor profile image
+    const instructorProfile = await Profile.findOne({
+      userId: course.instructorId._id,
+    });
 
     const videos = await Video.find({ courseId }).sort({ order: 1 });
     const sections = await Section.find({ courseId }).sort({ order: 1 });
 
-    const sectionVideos = sections.map(section => {
-      const vids = videos
-        .filter(v => v.sectionId?.toString() === section._id.toString())
-        .map(v => ({
-          _id: v._id,
-          title: v.title,
-          description: v.description,
-          videoUrl: v.videoUrl,
-          duration: v.duration,
-          order: v.order,
-          isPreview: v.isPreview
-        }));
+    const sectionVideos = await Promise.all(
+      sections.map(async (section) => {
+        const vids = await Promise.all(
+          videos
+            .filter(v => v.sectionId?.toString() === section._id.toString())
+            .map(async (v) => {
 
-      return {
-        _id: section._id,
-        title: section.title,
-        videos: vids
-      };
-    });
+              const reviews = await VideoReview.find({ videoId: v._id })
+                .populate("userId", "name avatar") 
+                .sort({ createdAt: -1 });
 
-    const unassignedVideos = videos
-      .filter(v => !v.sectionId)
-      .map(v => ({
-        _id: v._id,
-        title: v.title,
-        description: v.description,
-        videoUrl: v.videoUrl,
-        duration: v.duration,
-        order: v.order,
-        isPreview: v.isPreview
-      }));
+              // Add profile image to all reviewers
+              const reviewsWithProfile = await Promise.all(
+                reviews.map(async (r) => {
+                  const profile = await Profile.findOne({ userId: r.userId?._id });
 
-    if (unassignedVideos.length > 0) {
+                  return {
+                    _id: r._id,
+                    comment: r.comment,
+                    reply: r.reply,
+                    resolved: r.resolved,
+                    createdAt: r.createdAt,
+                    user: {
+                      _id: r.userId?._id,
+                      name: r.userId?.name,
+                      avatar: r.userId?.avatar,
+                      profileImage: profile?.image || null,  // ⭐ NEW
+                    }
+                  };
+                })
+              );
+
+              return {
+                _id: v._id,
+                title: v.title,
+                description: v.description,
+                videoUrl: v.videoUrl,
+                duration: v.duration,
+                order: v.order,
+                isPreview: v.isPreview,
+                reviews: reviewsWithProfile,
+              };
+            })
+        );
+
+        return {
+          _id: section._id,
+          title: section.title,
+          videos: vids
+        };
+      })
+    );
+
+    // -------------------------
+    // ⭐ Unassigned Videos Updated
+    // -------------------------
+    const unassigned = await Promise.all(
+      videos
+        .filter(v => !v.sectionId)
+        .map(async (v) => {
+
+          const reviews = await VideoReview.find({ videoId: v._id })
+            .populate("userId", "name avatar")
+            .sort({ createdAt: -1 });
+
+          const reviewsWithProfile = await Promise.all(
+            reviews.map(async (r) => {
+              const profile = await Profile.findOne({ userId: r.userId?._id });
+
+              return {
+                _id: r._id,
+                comment: r.comment,
+                reply: r.reply,
+                resolved: r.resolved,
+                createdAt: r.createdAt,
+                user: {
+                  _id: r.userId?._id,
+                  name: r.userId?.name,
+                  avatar: r.userId?.avatar,
+                  profileImage: profile?.image || null, 
+                }
+              };
+            })
+          );
+
+          return {
+            _id: v._id,
+            title: v.title,
+            description: v.description,
+            videoUrl: v.videoUrl,
+            duration: v.duration,
+            order: v.order,
+            isPreview: v.isPreview,
+            reviews: reviewsWithProfile,
+          };
+        })
+    );
+
+    if (unassigned.length > 0) {
       sectionVideos.push({
         _id: null,
         title: "General",
-        videos: unassignedVideos
+        videos: unassigned
       });
     }
 
@@ -83,20 +156,23 @@ exports.GetEnrolledCourse = async (req, res) => {
 
     res.json({
       message: "Enrolled course fetched",
-      course,
+      course: {
+        ...course._doc,
+        instructorProfileImage: instructorProfile?.image || null  // ⭐ NEW
+      },
       sections: sectionVideos,
       progress: {
-        percentage: enrolled.progress, // <-- use enrolled, not enrollment
+        percentage: enrolled.progress,
         watchedVideos,
         totalVideos
       }
     });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error", err });
   }
 };
-
 // -----------------------------
 // Mark Video as Complete & Update Progress
 // -----------------------------
@@ -111,30 +187,32 @@ exports.MarkVideoComplete = async (req, res) => {
     const enrollment = await Enrollment.findOne({ userId, courseId: video.courseId });
     if (!enrollment) return res.status(403).json({ message: "User not enrolled!" });
 
-    // Initialize completedVideos array if missing
+    // Initialize if empty
     if (!enrollment.completedVideos) enrollment.completedVideos = [];
 
-    // Add video to completedVideos if not already
-    if (!enrollment.completedVideos.includes(videoId.toString())) {
+    // Convert ObjectIds to strings
+    const completedSet = enrollment.completedVideos.map(v => v.toString());
+
+    // Add only once
+    if (!completedSet.includes(videoId.toString())) {
       enrollment.completedVideos.push(videoId.toString());
-
-      // Update progress percentage
-      const totalVideos = await Video.countDocuments({ courseId: video.courseId });
-      const completedCount = enrollment.completedVideos.length;
-      enrollment.progress = Math.round((completedCount / totalVideos) * 100);
-
-      // Mark course complete if all videos watched
-      enrollment.isComplete = completedCount === totalVideos;
-
-      await enrollment.save();
     }
+
+    // Recalculate progress
+    const totalVideos = await Video.countDocuments({ courseId: video.courseId });
+    const completedCount = enrollment.completedVideos.length;
+
+    enrollment.progress = Math.round((completedCount / totalVideos) * 100);
+    enrollment.isComplete = completedCount === totalVideos;
+
+    await enrollment.save();
 
     res.json({
       message: "Video marked as complete",
       progress: {
         percentage: enrollment.progress,
-        completedVideos: enrollment.completedVideos.length,
-        totalVideos: await Video.countDocuments({ courseId: video.courseId }),
+        completedVideos: completedCount,
+        totalVideos,
         isComplete: enrollment.isComplete
       }
     });
