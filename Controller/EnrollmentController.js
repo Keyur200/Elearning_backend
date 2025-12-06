@@ -244,7 +244,7 @@ exports.AddVideoReview = async (req, res) => {
       userId: course.instructorId,
       type: "video_comment",
       referenceId: review._id,
-      message: `New comment on your video: ${video.title}`,
+      message: `New comment on your video: ${comment}`,
       forRole: "instructor",
     });
 
@@ -311,4 +311,88 @@ exports.GetMyEnrollments = async (req, res) => {
       message: "Error fetching enrolled courses",
     });
   }
+};
+
+
+exports.GetCourseWithAllUser = async (req, res) => {
+    try {
+        // Get all courses
+        const courses = await Course.find({});
+
+        const result = [];
+
+        for (const course of courses) {
+
+            // find all enrollments for this course
+            const enrollments = await Enrollment.find({ courseId: course._id })
+                .populate("userId", "name email") // populate user name + email
+                .exec();
+
+            const enrolledUsers = enrollments.map(e => e.userId);
+
+            result.push({
+                courseId: course._id,
+                courseName: course.title,
+                enrolledCount: enrolledUsers.length,
+                enrolledUsers
+            });
+        }
+
+        res.json({
+            success: true,
+            data: result
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+}
+
+exports.GetInstructorCourseWithUsers = async (req, res) => {
+    try {
+        const instructorId = req.params.id; 
+        
+        // Get courses created by this instructor
+        const courses = await Course.find({ instructorId });
+        console.log(instructorId)
+        const result = [];
+
+        for (const course of courses) {
+
+            // Get all enrollments for this course  
+            const enrollments = await Enrollment.find({ courseId: course._id })
+                .populate("userId", "name email")     // user info
+                .populate("completedVideos", "title") // video titles (optional)
+                .exec();
+
+            // Shape response data
+            const enrolledUsers = enrollments.map(e => ({
+                userId: e.userId._id,
+                name: e.userId.name,
+                email: e.userId.email,
+                enrollDate: e.enrollDate,
+                progress: e.progress,
+                isComplete: e.isComplete,
+                completedVideos: e.completedVideos
+            }));
+
+            result.push({
+                courseId: course._id,
+                courseName: course.title,
+                thumbnail: course.thumbnail,
+                enrolledCount: enrolledUsers.length,
+                enrolledUsers
+            });
+        }
+
+        res.json({
+            success: true,
+            data: result
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
 };

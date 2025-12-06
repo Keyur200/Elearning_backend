@@ -7,7 +7,9 @@ const {
     AddVideoReview,
     ReplyToReview,
     GetMyEnrollments,
-    MarkVideoComplete  // <-- new function
+    MarkVideoComplete,  // <-- new function
+    GetCourseWithAllUser,
+    GetInstructorCourseWithUsers
 } = require("../Controller/EnrollmentController");
 
 const router = express.Router();
@@ -39,13 +41,10 @@ router.post("/video/:videoId/review", requireLogin, AddVideoReview);
 // ✔ Instructor replies to student's review
 router.post("/review/:reviewId/reply", requireLogin, ReplyToReview);
 
-/**
- * -----------------------------------------------
- * USER ENROLLMENTS
- * -----------------------------------------------
- */
 
-// ✔ Get all enrolled courses
 router.get("/my/enrollments", requireLogin, GetMyEnrollments);
+
+router.get("/courses/enrollments", GetCourseWithAllUser)
+router.get("/inst/:id/courses/enrollments", GetInstructorCourseWithUsers)
 
 module.exports = router;
