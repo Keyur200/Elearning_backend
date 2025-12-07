@@ -1,3 +1,4 @@
+const mongoose = require("mongoose"); // 👈 ADD THIS LINE
 const Enrollment = require("../Models/EnrollmentModel.js");
 const Course = require("../Models/CourseModel.js");
 const Video = require("../Models/VideoModel.js");
@@ -6,6 +7,8 @@ const VideoReview = require("../Models/VideoReviewModel.js");
 const Profile = require("../Models/ProfileModel.js");
 
 const { CreateNotification } = require("../services/NotificationService");
+
+
 
 // -----------------------------
 // Check User Access
@@ -395,4 +398,79 @@ exports.GetInstructorCourseWithUsers = async (req, res) => {
         console.error(error);
         res.status(500).json({ success: false, message: "Server error" });
     }
+};
+
+/* ---------------------------------------------------------
+   🟢 Get All Reviews for Instructor's Courses
+--------------------------------------------------------- */
+exports.GetInstructorReviews = async (req, res) => {
+  try {
+    const instructorId = req.user._id;
+
+    const reviews = await VideoReview.aggregate([
+      // 1. Join Video to get the course ID
+      {
+        $lookup: {
+          from: "videos",
+          localField: "videoId",
+          foreignField: "_id",
+          as: "video"
+        }
+      },
+      { $unwind: "$video" },
+
+      // 2. Join Course to filter by Instructor
+      {
+        $lookup: {
+          from: "courses",
+          localField: "video.courseId",
+          foreignField: "_id",
+          as: "course"
+        }
+      },
+      { $unwind: "$course" },
+
+      // 3. 🔥 Filter: Only show reviews for THIS instructor's courses
+      {
+        $match: {
+          "course.instructorId": new mongoose.Types.ObjectId(instructorId)
+        }
+      },
+
+      // 4. Join User to get Student Name
+      {
+        $lookup: {
+          from: "users",
+          localField: "userId",
+          foreignField: "_id",
+          as: "student"
+        }
+      },
+      { $unwind: "$student" },
+
+      // 5. Project (Shape) the data
+      {
+        $project: {
+          _id: 1,
+          comment: 1,
+          reply: 1,
+          resolved: 1,
+          createdAt: 1,
+          "student.name": 1,
+          "student.image": 1, // If you have profile images
+          "video.title": 1,
+          "course.title": 1
+        }
+      },
+      
+      // 6. Sort: Unresolved first, then by date
+      { $sort: { resolved: 1, createdAt: -1 } }
+    ]);
+
+    res.json({ success: true, reviews });
+
+  } catch (err) {
+    console.error("❌ Error fetching instructor reviews:", err);
+    res.status(500).json({ message: "Server error", err });
+  }
 };

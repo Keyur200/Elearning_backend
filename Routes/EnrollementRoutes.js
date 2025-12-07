@@ -1,5 +1,6 @@
 const express = require("express");
 const { requireLogin } = require('../Middleware/authMiddleware');
+const { isAdminOrInstructor } = require('../Middleware/roleMiddleware');
 
 const {
     UserAccess,
@@ -7,9 +8,10 @@ const {
     AddVideoReview,
     ReplyToReview,
     GetMyEnrollments,
-    MarkVideoComplete,  // <-- new function
+    MarkVideoComplete,
     GetCourseWithAllUser,
-    GetInstructorCourseWithUsers
+    GetInstructorCourseWithUsers,
+    GetInstructorReviews // <--- Import the new controller
 } = require("../Controller/EnrollmentController");
 
 const router = express.Router();
@@ -23,15 +25,15 @@ const router = express.Router();
 // ✔ Check if user has access to a course
 router.get("/course/:id/access", requireLogin, UserAccess);
 
-// ✔ Get enrolled course details (sections + videos + progress)
+// ✔ Get enrolled course details
 router.get("/course/:id/enrolled", requireLogin, GetEnrolledCourse);
 
-// ✔ Mark a video as completed and update progress
+// ✔ Mark a video as completed
 router.post("/video/:videoId/complete", requireLogin, MarkVideoComplete);
 
 /**
  * -----------------------------------------------
- * VIDEO REVIEWS / COMMENTS
+ * VIDEO REVIEWS / COMMENTS (FAQ)
  * -----------------------------------------------
  */
 
@@ -41,10 +43,12 @@ router.post("/video/:videoId/review", requireLogin, AddVideoReview);
 // ✔ Instructor replies to student's review
 router.post("/review/:reviewId/reply", requireLogin, ReplyToReview);
 
+// ✔ 🟢 NEW: Get all reviews for the instructor's dashboard
+router.get("/instructor/reviews", requireLogin, GetInstructorReviews);
+
 
 router.get("/my/enrollments", requireLogin, GetMyEnrollments);
-
-router.get("/courses/enrollments", GetCourseWithAllUser)
-router.get("/inst/:id/courses/enrollments", GetInstructorCourseWithUsers)
+router.get("/courses/enrollments", GetCourseWithAllUser);
+router.get("/inst/:id/courses/enrollments", GetInstructorCourseWithUsers);
 
 module.exports = router;
