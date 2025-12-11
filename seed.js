@@ -10,7 +10,7 @@ const User = require('./Models/UserModel');
 const Profile = require('./Models/ProfileModel');
 const Category = require('./Models/CategoryModel');
 const Course = require('./Models/CourseModel');
-const Section = require('./Models/SectionModel'); // ✅ Added Section model
+const Section = require('./Models/SectionModel');
 const Video = require('./Models/VideoModel');
 const VideoReview = require('./Models/VideoReviewModel');
 const CourseRating = require('./Models/CourseRatingModel');
@@ -20,233 +20,219 @@ const Enrollment = require('./Models/EnrollmentModel');
 const Notification = require('./Models/NotificationModel');
 
 // Debug dotenv
-console.log('MONGO_URL:', process.env.MONGO_URL);
-console.log('SECRET:', process.env.SECRET);
+console.log("MONGO_URL:", process.env.MONGO_URL);
+console.log("SECRET:", process.env.SECRET);
 
-// Connect to MongoDB
+// Connect
 mongoose.connect(process.env.MONGO_URL, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
+    useNewUrlParser: true,
+    useUnifiedTopology: true
 })
-  .then(() => console.log('✅ MongoDB Connected'))
-  .catch(err => {
-    console.error('❌ MongoDB Connection Error:', err);
-    process.exit(1);
-  });
+.then(() => console.log("MongoDB Connected"))
+.catch(err => { console.error(err); process.exit(1); });
 
 const seedDatabase = async () => {
-  try {
-    console.log('🌱 Seeding database...');
+    try {
 
-    // 1. Clear all collections
-    await Promise.all([
-      Role.deleteMany(),
-      User.deleteMany(),
-      Profile.deleteMany(),
-      Category.deleteMany(),
-      Course.deleteMany(),
-      Section.deleteMany(),
-      Video.deleteMany(),
-      VideoReview.deleteMany(),
-      CourseRating.deleteMany(),
-      Order.deleteMany(),
-      Payment.deleteMany(),
-      Enrollment.deleteMany(),
-      Notification.deleteMany()
-    ]);
+        console.log("Clearing old data...");
+        await Promise.all([
+            Role.deleteMany(),
+            User.deleteMany(),
+            Profile.deleteMany(),
+            Category.deleteMany(),
+            Course.deleteMany(),
+            Section.deleteMany(),
+            Video.deleteMany(),
+            VideoReview.deleteMany(),
+            CourseRating.deleteMany(),
+            Order.deleteMany(),
+            Payment.deleteMany(),
+            Enrollment.deleteMany(),
+            Notification.deleteMany()
+        ]);
 
-    // 2. Create Roles
-    const roles = await Role.insertMany([
-      { name: 'Admin' },
-      { name: 'Instructor' },
-      { name: 'User' }
-    ]);
-    const [adminRole, instructorRole, userRole] = roles;
+        console.log("Creating roles...");
+        const roles = await Role.insertMany([
+            { name: "Admin" },
+            { name: "Instructor" },
+            { name: "User" }
+        ]);
 
-    // 3. Hash password
-    const hashedPassword = await bcrypt.hash('Password123!', 10);
+        const [adminRole, instructorRole, userRole] = roles;
 
-    // 4. Create Users
-    const admin = await User.create({
-      name: 'Admin User',
-      email: 'admin@example.com',
-      password: hashedPassword,
-      roleId: adminRole._id
-    });
+        const hashedPassword = await bcrypt.hash("1234", 10);
 
-    const instructor = await User.create({
-      name: 'John Instructor',
-      email: 'instructor@example.com',
-      password: hashedPassword,
-      roleId: instructorRole._id
-    });
+        console.log("Creating users...");
+        const admin = await User.create({
+            name: "Admin User",
+            email: "admin@gmail.com",
+            password: hashedPassword,
+            roleId: adminRole._id
+        });
 
-    const student = await User.create({
-      name: 'Sarang User',
-      email: 'user@example.com',
-      password: hashedPassword,
-      roleId: userRole._id
-    });
+        const instructor1 = await User.create({
+            name: "Instructor One",
+            email: "inst1@gmail.com",
+            password: hashedPassword,
+            roleId: instructorRole._id
+        });
 
-    // 5. Generate admin token for testing
-    const adminToken = jwt.sign(
-      { _id: admin._id, role: 'Admin' },
-      process.env.SECRET,
-      { expiresIn: '7d' }
-    );
-    console.log('JWT Token for Admin:', adminToken);
+        const instructor2 = await User.create({
+            name: "Instructor Two",
+            email: "inst2@gmail.com",
+            password: hashedPassword,
+            roleId: instructorRole._id
+        });
 
-    // 6. Create Profiles
-    await Profile.create({
-      userId: instructor._id,
-      fullName: 'John Instructor',
-      phone: '9876543210',
-      gitHubUsername: 'johnGit',
-      bio: 'Instructor specializing in full-stack development',
-      image: 'https://randomuser.me/api/portraits/men/32.jpg'
-    });
+        const user1 = await User.create({
+            name: "User One",
+            email: "user1@gmail.com",
+            password: hashedPassword,
+            roleId: userRole._id
+        });
 
-    await Profile.create({
-      userId: student._id,
-      fullName: 'Sarang User',
-      phone: '9123456780',
-      bio: 'Aspiring full-stack developer',
-      image: 'https://randomuser.me/api/portraits/men/33.jpg'
-    });
+        const user2 = await User.create({
+            name: "User Two",
+            email: "user2@gmail.com",
+            password: hashedPassword,
+            roleId: userRole._id
+        });
 
-    // 7. Create Category
-    const category = await Category.create({
-      name: 'Web Development',
-      description: 'Full-stack web development courses',
-      image: 'https://res.cloudinary.com/demo/image/upload/sample.jpg'
-    });
+        console.log("Creating profiles...");
+        await Profile.create({
+            userId: instructor1._id,
+            fullName: "Instructor One",
+            image: "https://randomuser.me/api/portraits/men/45.jpg",
+            bio: "Expert in Web Dev"
+        });
 
-    // 8. Create Course
-    const course = await Course.create({
-      title: 'MERN Stack Mastery',
-      description: 'Learn full-stack web development with MERN',
-      categoryId: category._id,
-      price: 1999,
-      estimatedPrice: 2499,
-      thumbnail: 'https://res.cloudinary.com/demo/video/upload/sample.jpg',
-      tags: ['MERN', 'React', 'Node'],
-      level: 'Intermediate',
-      benefits: ['Job ready', 'Hands-on projects'],
-      instructorId: instructor._id,
-      isPublished: true
-    });
+        await Profile.create({
+            userId: instructor2._id,
+            fullName: "Instructor Two",
+            image: "https://randomuser.me/api/portraits/men/46.jpg",
+            bio: "Expert in MERN"
+        });
 
-    // 9. Create Sections (NEW)
-    const introSection = await Section.create({
-      title: 'Introduction',
-      order: 1,
-      courseId: course._id
-    });
+        await Profile.create({
+            userId: user1._id,
+            fullName: "User One"
+        });
 
-    const htmlSection = await Section.create({
-      title: 'HTML Basics',
-      order: 2,
-      courseId: course._id
-    });
+        await Profile.create({
+            userId: user2._id,
+            fullName: "User Two"
+        });
 
-    // 10. Create Videos for each section
-    const introVideo = await Video.create({
-      title: 'Welcome to the MERN Course',
-      description: 'Course overview and setup instructions',
-      videoUrl: 'https://res.cloudinary.com/demo/video/upload/mern_intro.mp4',
-      duration: 8,
-      courseId: course._id,
-      sectionId: introSection._id,
-      order: 1,
-      isPreview: true
-    });
+        console.log("Creating 5 categories...");
+        const categories = await Category.insertMany([
+            { name: "Web Development", image: "https://picsum.photos/200" },
+            { name: "Data Science", image: "https://picsum.photos/201" },
+            { name: "Mobile Development", image: "https://picsum.photos/202" },
+            { name: "Machine Learning", image: "https://picsum.photos/203" },
+            { name: "Cloud Computing", image: "https://picsum.photos/204" }
+        ]);
 
-    const htmlVideo1 = await Video.create({
-      title: 'HTML Structure',
-      description: 'Learn the basic HTML structure',
-      videoUrl: 'https://res.cloudinary.com/demo/video/upload/html_structure.mp4',
-      duration: 12,
-      courseId: course._id,
-      sectionId: htmlSection._id,
-      order: 1
-    });
+        console.log("Creating courses for each instructor...");
 
-    const htmlVideo2 = await Video.create({
-      title: 'HTML Elements and Tags',
-      description: 'Understand HTML elements and commonly used tags',
-      videoUrl: 'https://res.cloudinary.com/demo/video/upload/html_tags.mp4',
-      duration: 15,
-      courseId: course._id,
-      sectionId: htmlSection._id,
-      order: 2
-    });
+        const course1 = await Course.create({
+            title: "Full MERN Bootcamp",
+            description: "Learn MERN from zero.",
+            categoryId: categories[0]._id,
+            price: 999,
+            estimatedPrice: 1499,
+            thumbnail: "https://picsum.photos/250",
+            tags: ["MERN", "React"],
+            level: "Beginner",
+            benefits: ["Real projects"],
+            instructorId: instructor1._id,
+            isPublished: true
+        });
 
-    // 11. Create Video Review
-    await VideoReview.create({
-      videoId: introVideo._id,
-      userId: student._id,
-      comment: 'Amazing intro lesson!',
-      resolved: false
-    });
+        const course2 = await Course.create({
+            title: "Modern JavaScript Mastery",
+            description: "Everything about JS.",
+            categoryId: categories[1]._id,
+            price: 1299,
+            estimatedPrice: 1999,
+            thumbnail: "https://picsum.photos/251",
+            tags: ["JS", "ES6"],
+            level: "Intermediate",
+            benefits: ["Industry Ready"],
+            instructorId: instructor2._id,
+            isPublished: true
+        });
 
-    // 12. Create Course Rating
-    await CourseRating.create({
-      courseId: course._id,
-      userId: student._id,
-      rating: 5,
-      review: 'Excellent course!'
-    });
+        console.log("Creating sections + videos for Course 1...");
+        const sec1 = await Section.create({
+            title: "Introduction",
+            order: 1,
+            courseId: course1._id
+        });
 
-    // 13. Create Order
-    const order = await Order.create({
-      courseId: course._id,
-      userId: student._id,
-      status: 'Pending',
-      paymentIntentId: 'pi_123456789',
-      paymentStatus: 'succeeded',
-      amountPaid: 1999,
-      currency: 'INR',
-      accessGranted: true
-    });
+        const sec2 = await Section.create({
+            title: "React Basics",
+            order: 2,
+            courseId: course1._id
+        });
 
-    // 14. Create Payment
-    await Payment.create({
-      orderId: order._id,
-      userId: student._id,
-      courseId: course._id,
-      paymentMethod: 'Stripe',
-      amount: 1999,
-      currency: 'INR',
-      status: 'succeeded',
-      transactionId: 'txn_987654321',
-      receiptUrl: 'https://stripe.com/receipt/example'
-    });
+        await Video.create({
+            title: "Welcome to MERN",
+            description: "Course intro",
+            videoUrl: "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
+            duration: "05:00",
+            courseId: course1._id,
+            sectionId: sec1._id,
+            order: 1,
+            isPreview: true
+        });
 
-    // 15. Create Enrollment
-    await Enrollment.create({
-      courseId: course._id,
-      userId: student._id,
-      progress: 25,
-      isComplete: false
-    });
+        await Video.create({
+            title: "React Intro",
+            description: "Learn React",
+            videoUrl: "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
+            duration: "08:00",
+            courseId: course1._id,
+            sectionId: sec2._id,
+            order: 1
+        });
 
-    // 16. Create Notification
-    await Notification.create({
-      userId: instructor._id,
-      type: 'Course Purchase',
-      message: 'Your course was purchased by a student',
-      forRole: 'Instructor',
-      isRead: false
-    });
+        console.log("Creating sections + videos for Course 2...");
+        const sec3 = await Section.create({
+            title: "JS Intro",
+            order: 1,
+            courseId: course2._id
+        });
 
-    console.log('✅ Database seeded successfully!');
-    process.exit(0);
+        const sec4 = await Section.create({
+            title: "Advanced JS",
+            order: 2,
+            courseId: course2._id
+        });
 
-  } catch (error) {
-    console.error('❌ Error seeding database:', error);
-    process.exit(1);
-  }
+        await Video.create({
+            title: "What is JavaScript?",
+            videoUrl: "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
+            duration: "06:00",
+            courseId: course2._id,
+            sectionId: sec3._id,
+            isPreview: true
+        });
+
+        await Video.create({
+            title: "Closures",
+            videoUrl: "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
+            duration: "10:00",
+            courseId: course2._id,
+            sectionId: sec4._id
+        });
+
+        console.log("Seeding done successfully!");
+        process.exit(0);
+
+    } catch (err) {
+        console.error(err);
+        process.exit(1);
+    }
 };
 
-// Run seed
 seedDatabase();

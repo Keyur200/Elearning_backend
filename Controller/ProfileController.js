@@ -1,116 +1,151 @@
-const User = require("../Models/UserModel");
 const Profile = require("../Models/ProfileModel");
-const cloudinary = require("cloudinary").v2;
 
-// ✅ Create Profile
+// ----------------------------
+// CREATE PROFILE
+// ----------------------------
 exports.createProfile = async (req, res) => {
   try {
-    const userId = req.user._id; // from token
-    const { fullName, phone, gitHubUsername, bio, imageUrl } = req.body;
+    const userId = req.user._id;
 
-    const userExists = await User.findById(userId);
-    if (!userExists) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
+    // Check if profile already exists
     const existingProfile = await Profile.findOne({ userId });
     if (existingProfile) {
-      return res.status(400).json({ message: "Profile already exists. Use update instead." });
-    }
-
-    // Handle image upload
-    let finalImage;
-    if (req.file) {
-      const uploadResult = await cloudinary.uploader.upload(req.file.path, {
-        folder: "profiles",
-        resource_type: "image",
+      return res.status(400).json({
+        success: false,
+        message: "Profile already exists.",
       });
-      finalImage = uploadResult.secure_url;
-    } else if (imageUrl) {
-      finalImage = imageUrl;
     }
 
-    const newProfile = new Profile({
+    const { fullName, phone, gitHubUsername, bio } = req.body;
+
+    const profileData = {
       userId,
       fullName,
       phone,
       gitHubUsername,
       bio,
-      image: finalImage,
+    };
+
+    // Image upload (if file is sent)
+    if (req.file) {
+      profileData.image = req.file.path; // Cloudinary or local path
+    }
+
+    const newProfile = await Profile.create(profileData);
+
+    return res.status(201).json({
+      success: true,
+      message: "Profile created successfully",
+      profile: newProfile,
     });
 
-    await newProfile.save();
-    res.status(201).json({ message: "Profile created successfully", profile: newProfile });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error", error: error.message });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Error creating profile",
+      error: err.message,
+    });
   }
 };
 
-// ✅ Update Profile
+// ----------------------------
+// GET PROFILE (Logged-in user)
+// ----------------------------
+exports.getProfileById = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const profile = await Profile.findOne({ userId });
+
+    if (!profile) {
+      return res.status(404).json({
+        success: false,
+        message: "Profile not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      profile,
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching profile",
+      error: err.message,
+    });
+  }
+};
+
+// ----------------------------
+// UPDATE PROFILE
+// ----------------------------
 exports.updateProfile = async (req, res) => {
   try {
-    const userId = req.user._id; // from token
-    const { fullName, phone, gitHubUsername, bio, imageUrl } = req.body;
+    const userId = req.user._id;
 
     let profile = await Profile.findOne({ userId });
     if (!profile) {
-      return res.status(404).json({ message: "Profile not found. Create it first." });
-    }
-
-    // Handle image upload
-    if (req.file) {
-      const uploadResult = await cloudinary.uploader.upload(req.file.path, {
-        folder: "profiles",
-        resource_type: "image",
+      return res.status(404).json({
+        success: false,
+        message: "Profile not found",
       });
-      profile.image = uploadResult.secure_url;
-    } else if (imageUrl) {
-      profile.image = imageUrl;
     }
 
-    profile.fullName = fullName || profile.fullName;
-    profile.phone = phone || profile.phone;
-    profile.gitHubUsername = gitHubUsername || profile.gitHubUsername;
-    profile.bio = bio || profile.bio;
+    const { fullName, phone, gitHubUsername, bio } = req.body;
+
+    if (fullName) profile.fullName = fullName;
+    if (phone) profile.phone = phone;
+    if (gitHubUsername) profile.gitHubUsername = gitHubUsername;
+    if (bio) profile.bio = bio;
+
+    if (req.file) {
+      profile.image = req.file.path; // new image overwrite
+    }
 
     await profile.save();
-    res.status(200).json({ message: "Profile updated successfully", profile });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error", error: error.message });
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      profile,
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Error updating profile",
+      error: err.message,
+    });
   }
 };
 
-// ✅ Get Profile
-exports.getProfileById = async (req, res) => {
-  try {
-    const userId = req.user._id; // from token
-    const profile = await Profile.findOne({ userId }).populate("userId", "name email");
-    if (!profile) {
-      return res.status(404).json({ message: "Profile not found" });
-    }
-    res.status(200).json(profile);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-};
-
-// ✅ Get ANY user's profile by userId (public for course instructor)
+// ----------------------------
+// PUBLIC PROFILE (using userId)
+// ----------------------------
 exports.getProfilePublic = async (req, res) => {
   try {
-    const userId = req.params.userId;
+    const { userId } = req.params;
 
-    const profile = await Profile.findOne({ userId }).populate("userId", "name email");
+    const profile = await Profile.findOne({ userId });
     if (!profile) {
-      return res.status(404).json({ message: "Profile not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Public profile not found",
+      });
     }
 
-    res.status(200).json(profile);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    return res.status(200).json({
+      success: true,
+      profile,
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching public profile",
+      error: err.message,
+    });
   }
 };
-
